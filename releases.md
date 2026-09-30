@@ -1,5 +1,9 @@
 # Releases
 
+## v0.1.1
+
+- Fix the Bake task name so `cargo bake test` invokes the workspace test task.
+
 ## v0.1.0
 
 - Add standard Rust test and downstream compatibility tasks for Bake.

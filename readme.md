@@ -69,6 +69,8 @@ See [releases.md](releases.md) for the full release history.
 
 ## See Also
 
+- [bake-test-rust](https://github.com/socketry/bake-test-rust) — Reusable Rust test tasks for Bake <!-- bake-readme:package -->
+
 - [Bake](https://github.com/socketry/bake-rust)
 - [Bake Cargo](https://github.com/socketry/bake-cargo-rust)
 
