@@ -42,13 +42,14 @@ combining `--all-features` and `--features`.
 
 Use the same task in CI after setting up Rust with
 `actions-rust-lang/setup-rust-toolchain@v2` and installing `cargo-llvm-cov` with
-`taiki-e/install-action@cargo-llvm-cov`. Include `llvm-tools-preview` in the
-toolchain components. This first version measures the runner's target and
-feature configuration. If a crate contains architecture-specific code, run the
-same gate on each supported architecture. Each run checks the code that was
-compiled for its target. A combined report can be added inside this task later
-if it becomes useful; projects keep the same Bake command as the coverage
-backend evolves.
+`cargo install cargo-llvm-cov --locked`. Include `llvm-tools-preview` in the
+toolchain components. The Rust cache includes Cargo-installed binaries, so the
+compiler-built coverage tool is reused on cache hits. This first version
+measures the runner's target and feature configuration. If a crate contains
+architecture-specific code, run the same gate on each supported architecture.
+Each run checks the code that was compiled for its target. A combined report
+can be added inside this task later if it becomes useful; projects keep the
+same Bake command as the coverage backend evolves.
 
 The coverage task runs documentation tests but does not include them in the
 coverage report; LLVM doctest coverage is still unstable. Line coverage is the
