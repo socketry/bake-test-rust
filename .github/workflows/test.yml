@@ -17,6 +17,8 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           components: clippy, llvm-tools-preview, rustfmt
+          # Isolate this source-installed tool from the old prebuilt-action cache.
+          cache-shared-key: coverage-cargo-install-v1
       - name: Install Bake launcher
         run: cargo install socketry-cargo-bake --locked
       - name: Install coverage tool
