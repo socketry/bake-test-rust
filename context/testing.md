@@ -40,12 +40,15 @@ limit coverage to one package. Coverage uses the default feature set unless
 supplied. Choose one feature configuration per invocation; the task rejects
 combining `--all-features` and `--features`.
 
-Use the same task in CI after installing `cargo-llvm-cov`. This first version
-measures the runner's target and feature configuration. If a crate contains
-architecture-specific code, run the same gate on each supported architecture.
-Each run checks the code that was compiled for its target. A combined report
-can be added inside this task later if it becomes useful; projects keep the
-same Bake command as the coverage backend evolves.
+Use the same task in CI after setting up Rust with
+`actions-rust-lang/setup-rust-toolchain@v2` and installing `cargo-llvm-cov` with
+`taiki-e/install-action@cargo-llvm-cov`. Include `llvm-tools-preview` in the
+toolchain components. This first version measures the runner's target and
+feature configuration. If a crate contains architecture-specific code, run the
+same gate on each supported architecture. Each run checks the code that was
+compiled for its target. A combined report can be added inside this task later
+if it becomes useful; projects keep the same Bake command as the coverage
+backend evolves.
 
 The coverage task runs documentation tests but does not include them in the
 coverage report; LLVM doctest coverage is still unstable. Line coverage is the
@@ -136,7 +139,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
       - name: Install Bake launcher
         run: cargo install socketry-cargo-bake --locked
       - name: Run downstream compatibility tests
