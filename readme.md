@@ -7,8 +7,9 @@ against local Cargo workspace packages.
 
 Rust provides a good test runner through Cargo, but it does not provide a shared
 way to prepare project resources or exercise selected downstream crates. This
-package gives Rust projects a consistent `bake test` and `bake test:external`
-interface while keeping Cargo as the test runner.
+package gives Rust projects a consistent `bake test`, `bake test:coverage`,
+and `bake test:external` interface while keeping Cargo and cargo-llvm-cov as
+the test runners.
 
 ## Usage
 
@@ -29,8 +30,15 @@ Then run the workspace tests:
 
 ```sh
 cargo bake test
+cargo bake test:coverage
 cargo bake test:external
 ```
+
+The coverage task runs documentation tests and requires 100% line coverage for
+the selected workspace test configuration. It prints uncovered source lines
+when the gate fails. Install `cargo-llvm-cov` first; see the
+[Rust Testing guide](context/testing.md) for feature selection and architecture
+notes. Use `--package name` to limit a workspace run to one package.
 
 Configure downstream repositories in the root `Cargo.toml`:
 
@@ -63,13 +71,15 @@ when the configured `crates-io` environment approves it. See the
 <!-- bake-readme:releases:start -->
 See [releases.md](releases.md) for the full release history.
 
+### v0.1.2
+
+- Add a Bake task for 100% line coverage with missing-line output.
+
 ### v0.1.0
 
 - Add standard Rust test and downstream compatibility tasks for Bake.
 
 ## See Also
-
-- [bake-test-rust](https://github.com/socketry/bake-test-rust) — Reusable Rust test tasks for Bake <!-- bake-readme:package -->
 
 - [Bake](https://github.com/socketry/bake-rust)
 - [Bake Cargo](https://github.com/socketry/bake-cargo-rust)

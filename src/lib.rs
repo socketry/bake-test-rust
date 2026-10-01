@@ -3,12 +3,15 @@
 
 //! Shared test tasks for Rust projects using Bake.
 //!
-//! The crate provides `test` and `test:external`. Both tasks call the optional
-//! project task `test:before` before running Cargo tests.
+//! The crate provides `test`, `test:coverage`, and `test:external`. Each task
+//! calls the optional project task `test:before` before running Cargo tests.
 mod cargo;
 mod external;
 mod manifest;
 mod metadata;
+#[cfg(test)]
+#[path = "tests/support.rs"]
+mod test_support;
 
 use bake::{Context, Error, Result};
 
@@ -36,6 +39,70 @@ fn run(
 
     cargo::run(context, &arguments)?;
     Ok("Cargo workspace tests passed".to_owned())
+}
+
+/// Run workspace tests and require complete line coverage.
+///
+/// Documentation tests run through Cargo because `cargo-llvm-cov` does not
+/// currently support stable doctest coverage. The remaining test targets run
+/// under `cargo-llvm-cov`, which prints uncovered source lines and fails when
+/// any executable line is uncovered.
+#[bake::task(name = "test:coverage")]
+fn run_coverage(
+    context: &mut Context,
+    #[bake(named, default = false, help = "Test every feature together.")] all_features: bool,
+    #[bake(help = "Repeat to select features.")] features: Vec<String>,
+    #[bake(help = "Limit coverage to one workspace package.")] package: Option<String>,
+    #[bake(named, default = false, help = "Also include examples and benchmarks.")]
+    all_targets: bool,
+) -> Result<String> {
+    if all_features && !features.is_empty() {
+        return Err(Error::new(
+            "choose either --all-features true or one or more --features values",
+        ));
+    }
+
+    run_before_test_hook(context)?;
+
+    let mut doc_arguments = vec!["test".to_owned()];
+    append_package_arguments(&mut doc_arguments, package.as_deref());
+    doc_arguments.extend(["--locked".to_owned(), "--doc".to_owned()]);
+    append_feature_arguments(&mut doc_arguments, all_features, &features);
+    cargo::run(context, &doc_arguments)?;
+
+    let mut coverage_arguments = vec!["llvm-cov".to_owned()];
+    append_package_arguments(&mut coverage_arguments, package.as_deref());
+    coverage_arguments.extend([
+        "--locked".to_owned(),
+        "--fail-under-lines".to_owned(),
+        "100".to_owned(),
+        "--show-missing-lines".to_owned(),
+    ]);
+    if all_targets {
+        coverage_arguments.push("--all-targets".to_owned());
+    }
+    append_feature_arguments(&mut coverage_arguments, all_features, &features);
+    cargo::run(context, &coverage_arguments)?;
+
+    Ok("Workspace tests passed with complete line coverage".to_owned())
+}
+
+fn append_feature_arguments(arguments: &mut Vec<String>, all_features: bool, features: &[String]) {
+    if all_features {
+        arguments.push("--all-features".to_owned());
+    } else if !features.is_empty() {
+        arguments.push("--features".to_owned());
+        arguments.push(features.join(","));
+    }
+}
+
+fn append_package_arguments(arguments: &mut Vec<String>, package: Option<&str>) {
+    if let Some(package) = package {
+        arguments.push("--package".to_owned());
+        arguments.push(package.to_owned());
+    } else {
+        arguments.push("--workspace".to_owned());
+    }
 }
 
 /// Test configured downstream repositories against this workspace's local packages.
@@ -83,3 +150,7 @@ fn run_external(
         "External tests passed for {repository_count} downstream {repository_label}"
     ))
 }
+
+#[cfg(test)]
+#[path = "tests/tasks.rs"]
+mod tests;

@@ -84,16 +84,20 @@ pub(crate) fn patch_checkout(checkout: &Path, packages: &[Package]) -> Result<()
 fn relative_path(from: &Path, to: &Path) -> Result<PathBuf> {
     let from_components: Vec<_> = from.components().collect();
     let to_components: Vec<_> = to.components().collect();
+    relative_path_components(&from_components, &to_components)
+}
+
+fn relative_path_components(
+    from_components: &[Component<'_>],
+    to_components: &[Component<'_>],
+) -> Result<PathBuf> {
     let common_length = from_components
         .iter()
-        .zip(&to_components)
+        .zip(to_components.iter())
         .take_while(|(left, right)| left == right)
         .count();
 
-    if common_length == 0
-        || matches!(from_components.first(), Some(Component::Prefix(_)))
-            && !matches!(to_components.first(), Some(Component::Prefix(_)))
-    {
+    if common_length == 0 {
         return Err(Error::new(
             "cannot make a relative Cargo patch path between different filesystem roots",
         ));
@@ -111,87 +115,5 @@ fn relative_path(from: &Path, to: &Path) -> Result<PathBuf> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::patch_checkout;
-    use crate::metadata::Package;
-    use std::fs;
-    use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    struct TemporaryDirectory(PathBuf);
-
-    impl TemporaryDirectory {
-        fn new() -> Self {
-            let unique = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("system clock is after the Unix epoch")
-                .as_nanos();
-            let path = std::env::temp_dir()
-                .join(format!("bake-test-rust-{}-{unique}", std::process::id()));
-            fs::create_dir_all(&path).expect("create temporary test directory");
-            Self(path)
-        }
-    }
-
-    impl Drop for TemporaryDirectory {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
-
-    fn package(manifest_path: PathBuf) -> Package {
-        Package {
-            package_identifier: "path+file:///workspace/example#example@0.1.0".to_owned(),
-            name: "example".to_owned(),
-            version: "0.1.0".to_owned(),
-            manifest_path,
-        }
-    }
-
-    #[test]
-    fn adds_a_relative_patch_and_is_idempotent() {
-        let temporary_directory = TemporaryDirectory::new();
-        let checkout = temporary_directory.0.join("downstream");
-        let package_directory = temporary_directory.0.join("workspace/example");
-        fs::create_dir_all(&checkout).expect("create downstream checkout");
-        fs::create_dir_all(&package_directory).expect("create local package directory");
-        let manifest_path = checkout.join("Cargo.toml");
-        fs::write(&manifest_path, "[workspace]\nmembers = []\n")
-            .expect("write downstream manifest");
-        let local_package = package(package_directory.join("Cargo.toml"));
-
-        patch_checkout(&checkout, std::slice::from_ref(&local_package))
-            .expect("add a local package patch");
-        let patched_manifest = fs::read_to_string(&manifest_path).expect("read patched manifest");
-        let parsed_manifest: toml_edit::DocumentMut =
-            patched_manifest.parse().expect("parse patched manifest");
-        assert_eq!(
-            parsed_manifest["patch"]["crates-io"]["example"]["path"].as_str(),
-            Some("../workspace/example")
-        );
-
-        patch_checkout(&checkout, &[local_package]).expect("reapply existing local patch");
-        assert_eq!(
-            fs::read_to_string(manifest_path).expect("read idempotent manifest"),
-            patched_manifest
-        );
-    }
-
-    #[test]
-    fn rejects_a_conflicting_existing_patch() {
-        let temporary_directory = TemporaryDirectory::new();
-        let checkout = temporary_directory.0.join("downstream");
-        let package_directory = temporary_directory.0.join("workspace/example");
-        fs::create_dir_all(&checkout).expect("create downstream checkout");
-        fs::create_dir_all(&package_directory).expect("create local package directory");
-        fs::write(
-            checkout.join("Cargo.toml"),
-            "[patch.crates-io]\nexample = { path = \"../other\" }\n",
-        )
-        .expect("write downstream manifest");
-
-        assert!(
-            patch_checkout(&checkout, &[package(package_directory.join("Cargo.toml"))]).is_err()
-        );
-    }
-}
+#[path = "manifest/tests.rs"]
+mod tests;
