@@ -1,5 +1,9 @@
 # Releases
 
+## v0.1.2
+
+- Update downstream lockfiles after applying local workspace patches.
+
 ## v0.1.1
 
 - Fix the Bake task name so `cargo bake test` invokes the workspace test task.
