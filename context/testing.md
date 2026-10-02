@@ -5,23 +5,57 @@ from `bake/src/main.rs`:
 
 ```toml
 [dependencies]
-bake-test-rust = "0.1"
+bake-test-rust = "0.2"
 ```
 
 ```rust,ignore
 use bake_test_rust as _;
 ```
 
-The package registers `test` and `test:external` tasks. `test` runs
-`cargo test --workspace --locked`; `test:external` runs Cargo tests in the
-selected downstream repositories without `--locked`, because the lockfiles
-need to resolve local path patches.
+The package registers `test`, `test:coverage`, and `test:external` tasks.
+`test` runs `cargo test --workspace --locked`; `test:external` runs Cargo tests
+in the selected downstream repositories without `--locked`, because the
+lockfiles need to resolve local path patches.
+
+## Coverage
+
+Install `cargo-llvm-cov` and run the Bake coverage task:
+
+```sh
+rustup component add llvm-tools-preview --toolchain stable
+cargo +stable install cargo-llvm-cov --locked
+rustup run stable cargo bake test:coverage
+```
+
+Run the task with the same toolchain that has `llvm-tools-preview`. If another
+Rust installation such as Homebrew's `cargo` comes first on `PATH`, plain
+`cargo bake` may use that compiler and fail to find the Rustup component.
+
+The task calls the optional `test:before` hook once, runs documentation tests
+with Cargo, then runs workspace tests under `cargo-llvm-cov`. The report prints
+uncovered lines, and the command fails if any executable line remains
+uncovered. It covers the whole workspace by default; use `--package name` to
+limit coverage to one package. Coverage uses the default feature set unless
+`--all-features true` or one or more repeatable `--features name` arguments are
+supplied. Choose one feature configuration per invocation; the task rejects
+combining `--all-features` and `--features`.
+
+The canonical GitHub Actions workflow below installs the required Rust
+components and coverage tool. The task measures the runner's target and feature
+configuration. If a crate contains architecture-specific code, run the same
+gate on each supported architecture; each run checks the code compiled for its
+target.
+
+The coverage task runs documentation tests but does not include them in the
+coverage report; LLVM doctest coverage is still unstable. Line coverage is the
+initial gate. Branch coverage is not part of this task.
 
 ## Before-test hook
 
-Both tasks call the optional project task `test:before` once before running
-tests. Use it for resources that need to be prepared for either local or
-downstream tests, such as downloading fixtures or generating assets:
+The `test`, `test:coverage`, and `test:external` tasks call the optional project
+task `test:before` once before running tests. Use it for resources that need to
+be prepared for either local or downstream tests, such as downloading fixtures
+or generating assets:
 
 ```rust,ignore
 #[bake::task(name = "test:before")]
@@ -77,12 +111,54 @@ checkout before rerunning external tests. The task checks Cargo's resolved
 dependency graph and stops if a downstream dependency silently resolves to the
 registry version instead of the local patch.
 
-## GitHub Actions
+## Canonical GitHub workflows
 
-Keep `.github/workflows/test.yml` as the standard local test workflow and run
-`cargo bake --locked test` so the `test:before` hook also runs in CI. Add
-`.github/workflows/external.yml` only when the Cargo metadata list contains
-one or more repositories:
+Use this `test.yml` for Socketry Rust repositories. It runs formatting,
+Clippy, documentation tests, and workspace coverage. The coverage task invokes
+the optional `test:before` hook and requires 100% line coverage. Passing
+`--all-targets true` includes examples and benchmarks in the coverage run. Do
+not add a separate `cargo bake test` step to this job; the coverage task runs
+the tests itself.
+
+```yaml
+name: Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          components: clippy, llvm-tools-preview, rustfmt
+          # Isolate this source-installed tool from the old prebuilt-action cache.
+          cache-shared-key: coverage-cargo-install-v1
+      - name: Install Bake launcher
+        run: cargo install socketry-cargo-bake --locked
+      - name: Install coverage tool
+        run: cargo install cargo-llvm-cov --locked
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Run tests and require complete line coverage
+        run: cargo bake --locked test:coverage --all-targets true
+```
+
+The standard `test` task remains useful for quick local runs without a coverage
+report. CI uses `test:coverage` so it enforces the organization-wide line
+coverage requirement.
+
+External compatibility testing is optional. Add
+`.github/workflows/external.yml` only when the Cargo metadata list contains one
+or more selected downstream repositories:
 
 ```yaml
 name: External Tests
@@ -101,7 +177,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
       - name: Install Bake launcher
         run: cargo install socketry-cargo-bake --locked
       - name: Run downstream compatibility tests

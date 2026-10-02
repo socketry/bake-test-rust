@@ -153,3 +153,7 @@ pub(crate) fn ensure_local_patches_are_selected(
 pub(crate) fn run_cargo(checkout: &Path, arguments: &[String]) -> Result<()> {
     cargo::run_in(checkout, arguments)
 }
+
+#[cfg(test)]
+#[path = "external/tests.rs"]
+mod tests;

@@ -33,6 +33,10 @@ pub(crate) fn read_workspace(context: &Context) -> Result<Workspace> {
     let metadata: Value = serde_json::from_slice(&output)
         .map_err(|error| Error::new(format!("could not parse Cargo metadata: {error}")))?;
 
+    parse_workspace(&metadata)
+}
+
+fn parse_workspace(metadata: &Value) -> Result<Workspace> {
     let root = metadata
         .get("workspace_root")
         .and_then(Value::as_str)
@@ -84,7 +88,7 @@ pub(crate) fn read_workspace(context: &Context) -> Result<Workspace> {
         }
     }
 
-    let external_repositories = read_external_repositories(&metadata, &root)?;
+    let external_repositories = read_external_repositories(metadata, &root)?;
 
     Ok(Workspace {
         packages,
@@ -254,58 +258,5 @@ fn validate_branch(branch: &str) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::read_external_repositories;
-    use serde_json::json;
-    use std::path::Path;
-
-    #[test]
-    fn normalizes_and_sorts_external_repositories() {
-        let metadata = json!({
-            "metadata": {
-                "bake": {
-                    "test": {
-                        "external": [
-                            {"repository": "socketry/zeta", "branch": "next"},
-                            {"repository": "https://github.com/socketry/alpha.git"}
-                        ]
-                    }
-                }
-            }
-        });
-
-        let repositories = read_external_repositories(&metadata, Path::new("."))
-            .expect("valid external repository metadata");
-
-        assert_eq!(repositories.len(), 2);
-        assert_eq!(repositories[0].name, "alpha");
-        assert_eq!(repositories[0].branch, "main");
-        assert_eq!(
-            repositories[0].repository,
-            "https://github.com/socketry/alpha.git"
-        );
-        assert_eq!(repositories[1].name, "zeta");
-        assert_eq!(repositories[1].branch, "next");
-        assert_eq!(
-            repositories[1].repository,
-            "https://github.com/socketry/zeta"
-        );
-    }
-
-    #[test]
-    fn rejects_checkout_names_that_escape_external_directory() {
-        let metadata = json!({
-            "metadata": {
-                "bake": {
-                    "test": {
-                        "external": [
-                            {"repository": "socketry/example", "name": "../outside"}
-                        ]
-                    }
-                }
-            }
-        });
-
-        assert!(read_external_repositories(&metadata, Path::new(".")).is_err());
-    }
-}
+#[path = "metadata/tests.rs"]
+mod tests;
