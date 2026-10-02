@@ -58,6 +58,7 @@ fn run_external(
     for repository in &workspace.external_repositories {
         let checkout = external::checkout(context, repository)?;
         manifest::patch_checkout(&checkout, &workspace.packages)?;
+        cargo::update_in(&checkout)?;
         external::ensure_local_patches_are_selected(&checkout, &workspace.packages)?;
         checkouts.push(checkout);
     }
