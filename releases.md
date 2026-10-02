@@ -1,9 +1,12 @@
 # Releases
 
+## v0.2.0
+
+- Add a Bake task for 100% line coverage with missing-line output.
+
 ## v0.1.2
 
 - Update downstream lockfiles after applying local workspace patches.
-- Add a Bake task for 100% line coverage with missing-line output.
 
 ## v0.1.1
 
