@@ -17,7 +17,7 @@ Add the task crate to the private `bake/` package:
 
 ```toml
 [dependencies]
-bake-test-rust = "0.1"
+bake-test-rust = "0.2"
 ```
 
 Link its tasks from `bake/src/main.rs`:
@@ -49,14 +49,15 @@ branch = "main"
 ```
 
 See the [Rust Testing guide](context/testing.md) for the `test:before` hook,
-checkout reuse, Cargo patching, and GitHub Actions setup.
+checkout reuse, Cargo patching, and canonical GitHub Actions workflows.
 
 ### Agent Context
 
 This crate publishes context files for coding agents. Configure Bake Agent
 Context in your private `bake/` crate, then run
-`cargo bake agent:context:install --package bake-test-rust` to install them in
-`.agents/context/` and update `agents.md`.
+`cargo bake agent:context:install --package bake-test-rust` to install the
+package's testing guidance for agents. See the Bake Agent Context guide for
+installation details.
 
 ## Releasing
 

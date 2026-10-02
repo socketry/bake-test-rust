@@ -1,10 +1,24 @@
 // Released under the MIT License.
 // Copyright, 2026, by Samuel Williams.
 
-use super::{metadata_in, run, run_in, update_in};
+use super::{executable_from, metadata_in, run, run_in, update_in};
 use crate::test_support::{Environment, TemporaryDirectory};
 use bake::Registry;
+use std::ffi::OsString;
 use std::fs;
+
+#[test]
+fn executable_defaults_to_cargo() {
+    assert_eq!(executable_from(None), OsString::from("cargo"));
+}
+
+#[test]
+fn executable_uses_cargo_environment_value() {
+    assert_eq!(
+        executable_from(Some(OsString::from("custom-cargo"))),
+        OsString::from("custom-cargo")
+    );
+}
 
 #[cfg(unix)]
 #[test]
@@ -49,6 +63,7 @@ fn cargo_commands_report_success_failure_and_startup_errors() {
 
     _environment.set("CARGO", temporary_directory.path().join("missing-cargo"));
     assert!(run(&context, &["test".to_owned()]).is_err());
+    assert!(run_in(temporary_directory.path(), &["test".to_owned()]).is_err());
     assert!(metadata_in(temporary_directory.path(), false).is_err());
 
     let log = fs::read_to_string(log).expect("read recorded Cargo commands");
@@ -58,6 +73,7 @@ fn cargo_commands_report_success_failure_and_startup_errors() {
 
 #[test]
 fn updates_lockfile_to_select_a_new_local_patch_version() {
+    let _environment = Environment::new();
     let directory = TemporaryDirectory::new();
     let patched_package = directory.path().join("patched");
     fs::create_dir_all(patched_package.join("src")).expect("create patched package");
