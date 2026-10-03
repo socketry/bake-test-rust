@@ -1,22 +1,7 @@
 // Released under the MIT License.
 // Copyright, 2026, by Samuel Williams.
 
-use bake::{Context, Registry, Result};
-use bake_agent_context as _;
-use bake_cargo as _;
-use bake_license as _;
-use bake_readme as _;
-use bake_releases as _;
-use bake_test_rust as _;
-
-/// Refresh the license, release notes, and generated Readme sections after a version bump.
-#[bake::task(name = "cargo:after_version_bump")]
-fn after_version_bump(context: &mut Context, version: String) -> Result<()> {
-    context.call("license:update", &[])?;
-    context.call("releases:update", &[&format!("v{version}")])?;
-    context.call("readme:update", &[])?;
-    Ok(())
-}
+use bake::{Registry, Result};
 
 fn main() -> Result<()> {
     Registry::discover()?.run()
@@ -24,8 +9,8 @@ fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::after_version_bump;
     use bake::{Arguments, Context, Parameter, Registry, Result, Task, Value};
+    use socketry_project::after_version_bump;
     use std::fs;
 
     fn license_update(context: &mut Context, _arguments: &Arguments) -> Result<Value> {
@@ -90,3 +75,6 @@ mod tests {
         fs::remove_dir_all(root).expect("remove temporary Bake project");
     }
 }
+
+#[path = "bake_generated_tasks/mod.rs"]
+mod bake_generated_tasks;
