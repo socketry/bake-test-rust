@@ -1,5 +1,13 @@
 # Releases
 
+## Unreleased
+
+
+## v0.2.1
+
+- Use the shared `socketry-project` Releasing skill for the standard release
+  process and remove references to the duplicate Bake Cargo publishing context.
+
 ## v0.2.0
 
 - Add a Bake task for 100% line coverage with missing-line output.
