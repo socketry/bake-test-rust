@@ -33,12 +33,40 @@ Rust installation such as Homebrew's `cargo` comes first on `PATH`, plain
 
 The task calls the optional `test:before` hook once, runs documentation tests
 with Cargo, then runs workspace tests under `cargo-llvm-cov`. The report prints
-uncovered lines, and the command fails if any executable line remains
+uncovered lines, and the command fails if any measured executable line remains
 uncovered. It covers the whole workspace by default; use `--package name` to
 limit coverage to one package. Coverage uses the default feature set unless
 `--all-features true` or one or more repeatable `--features name` arguments are
 supplied. Choose one feature configuration per invocation; the task rejects
 combining `--all-features` and `--features`.
+
+### Unreachable lines
+
+Rust checks local type-level impossibilities, such as exhaustive matches over
+closed enums. It does not generally prove runtime invariants that depend on
+relationships between values, parser behavior, or upstream code. An
+`unreachable!()` is a runtime assertion that panics if that invariant is
+violated; it is not proof that the branch cannot occur.
+
+If `cargo-llvm-cov` reports a genuinely invariant-only `unreachable!()` line as
+uncovered, include its reason in the panic message:
+
+```rust
+_ => unreachable!("Only JSX events can be mismatched here")
+```
+
+An uncovered, single-line `unreachable!("reason")` call is excluded
+automatically from measured coverage when it stands alone or is the sole
+expression in a match arm. The macro asserts that the path should not be
+reached; it does not prove that the invariant is correct. The task reports raw
+and measured coverage separately, along with the number of excluded lines. All
+other executable lines must still reach 100% coverage.
+
+Use `unreachable!()` only after checking the invariant against supported
+inputs. If supported input can reach the branch, handle and test that case
+instead of asserting it is unreachable. Test valid inputs and the boundary that
+establishes the invariant; do not manufacture an impossible private state
+solely to execute the panic.
 
 The canonical GitHub Actions workflow below installs the required Rust
 components and coverage tool. The task measures the runner's target and feature
@@ -47,8 +75,9 @@ gate on each supported architecture; each run checks the code compiled for its
 target.
 
 The coverage task runs documentation tests but does not include them in the
-coverage report; LLVM doctest coverage is still unstable. Line coverage is the
-initial gate. Branch coverage is not part of this task.
+coverage report; LLVM doctest coverage is still unstable. It uses the JSON
+report to enforce 100% of measured executable lines and asks `cargo-llvm-cov` to
+print uncovered source lines. Branch coverage is not part of this task.
 
 ## Before-test hook
 

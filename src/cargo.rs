@@ -3,6 +3,7 @@
 
 use bake::{Context, Error, Result};
 use std::ffi::OsString;
+use std::path::Path;
 use std::process::Command;
 
 pub(crate) fn executable() -> OsString {
@@ -21,6 +22,28 @@ pub(crate) fn run(context: &Context, arguments: &[String]) -> Result<()> {
         Err(Error::new(format!(
             "cargo {} failed: {status}",
             arguments.join(" ")
+        )))
+    }
+}
+
+pub(crate) fn run_with_output_path(
+    context: &Context,
+    arguments: &[String],
+    output_path: &Path,
+) -> Result<()> {
+    let status = context
+        .command(executable())
+        .args(arguments)
+        .args(["--json", "--show-missing-lines", "--output-path"])
+        .arg(output_path)
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::new(format!(
+            "cargo {} --json --show-missing-lines --output-path {} failed: {status}",
+            arguments.join(" "),
+            output_path.display()
         )))
     }
 }

@@ -35,7 +35,9 @@ cargo bake test:external
 ```
 
 The coverage task runs documentation tests and requires 100% line coverage for
-the selected workspace test configuration. It prints uncovered source lines
+the selected workspace test configuration. Uncovered, single-line
+`unreachable!("reason")` expressions are excluded automatically; raw and
+measured coverage are reported separately. It prints uncovered source lines
 when the gate fails. Install `cargo-llvm-cov` first; see the
 [Rust Testing guide](context/testing.md) for feature selection and architecture
 notes. Use `--package name` to limit a workspace run to one package.

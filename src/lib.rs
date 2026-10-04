@@ -6,6 +6,7 @@
 //! The crate provides `test`, `test:coverage`, and `test:external`. Each task
 //! calls the optional project task `test:before` before running Cargo tests.
 mod cargo;
+mod coverage;
 mod external;
 mod manifest;
 mod metadata;
@@ -45,8 +46,8 @@ fn run(
 ///
 /// Documentation tests run through Cargo because `cargo-llvm-cov` does not
 /// currently support stable doctest coverage. The remaining test targets run
-/// under `cargo-llvm-cov`, which prints uncovered source lines and fails when
-/// any executable line is uncovered.
+/// under `cargo-llvm-cov`; uncovered lines fail the task unless they are
+/// explicitly marked as unreachable.
 #[bake::task(name = "test:coverage")]
 fn run_coverage(
     context: &mut Context,
@@ -70,21 +71,22 @@ fn run_coverage(
     append_feature_arguments(&mut doc_arguments, all_features, &features);
     cargo::run(context, &doc_arguments)?;
 
+    let report = coverage::CoverageReport::new()?;
     let mut coverage_arguments = vec!["llvm-cov".to_owned()];
     append_package_arguments(&mut coverage_arguments, package.as_deref());
-    coverage_arguments.extend([
-        "--locked".to_owned(),
-        "--fail-under-lines".to_owned(),
-        "100".to_owned(),
-        "--show-missing-lines".to_owned(),
-    ]);
+    coverage_arguments.push("--locked".to_owned());
     if all_targets {
         coverage_arguments.push("--all-targets".to_owned());
     }
     append_feature_arguments(&mut coverage_arguments, all_features, &features);
-    cargo::run(context, &coverage_arguments)?;
+    cargo::run_with_output_path(context, &coverage_arguments, report.path())?;
 
-    Ok("Workspace tests passed with complete line coverage".to_owned())
+    let summary = report.read(context.root())?;
+    if !summary.is_complete() {
+        return Err(Error::new(summary.failure_message()));
+    }
+
+    Ok(summary.success_message())
 }
 
 fn append_feature_arguments(arguments: &mut Vec<String>, all_features: bool, features: &[String]) {

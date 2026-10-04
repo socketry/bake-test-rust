@@ -52,7 +52,38 @@ fn prepare_cargo(
     environment.set("BAKE_TEST_DOWNSTREAM_METADATA", &downstream_metadata_path);
     environment.set("BAKE_TEST_METADATA_EXIT", "0");
     environment.remove("BAKE_TEST_FAIL_ON");
+    write_coverage_fixture(environment, root, "fn covered() {}\n", &[(1, 1)]);
     log
+}
+
+fn write_coverage_fixture(
+    environment: &Environment,
+    root: &Path,
+    source: &str,
+    line_data: &[(usize, u64)],
+) {
+    let source_path = root.join("src/coverage.rs");
+    fs::create_dir_all(source_path.parent().expect("source parent"))
+        .expect("create coverage source directory");
+    fs::write(&source_path, source).expect("write coverage source");
+
+    let report_path = root.join("coverage.json");
+    let segments = line_data
+        .iter()
+        .map(|(number, count)| json!([number, 1, count, true, true, false]))
+        .collect::<Vec<_>>();
+    let covered = line_data.iter().filter(|(_, count)| *count > 0).count();
+    let report = json!({
+        "data": [{
+            "files": [{
+                "filename": source_path,
+                "summary": {"lines": {"count": line_data.len(), "covered": covered}},
+                "segments": segments,
+            }]
+        }]
+    });
+    fs::write(&report_path, report.to_string()).expect("write fake coverage report");
+    environment.set("BAKE_TEST_COVERAGE_REPORT", report_path);
 }
 
 fn workspace_metadata(
@@ -179,16 +210,15 @@ fn runs_coverage_with_package_feature_and_target_options() {
     );
     let mut context = context(temporary_directory.path());
 
-    assert_eq!(
-        run_coverage(&mut context, false, vec![], None, false).expect("run default coverage task"),
-        "Workspace tests passed with complete line coverage"
+    assert!(
+        run_coverage(&mut context, false, vec![], None, false)
+            .expect("run default coverage task")
+            .starts_with("Line coverage passed: 1/1 measured lines covered")
     );
     let calls = fs::read_to_string(&log).expect("read default coverage commands");
     assert!(calls.contains("test --workspace --locked --doc\n"));
     assert!(
-        calls.contains(
-            "llvm-cov --workspace --locked --fail-under-lines 100 --show-missing-lines\n"
-        )
+        calls.contains("llvm-cov --workspace --locked --json --show-missing-lines --output-path ")
     );
     assert!(!calls.contains("--features"));
 
@@ -197,7 +227,9 @@ fn runs_coverage_with_package_feature_and_target_options() {
         .expect("run all-features package coverage");
     let calls = fs::read_to_string(&log).expect("read all-features coverage commands");
     assert!(calls.contains("test --package library --locked --doc --all-features\n"));
-    assert!(calls.contains("llvm-cov --package library --locked --fail-under-lines 100 --show-missing-lines --all-targets --all-features\n"));
+    assert!(calls.contains(
+        "llvm-cov --package library --locked --all-targets --all-features --json --show-missing-lines --output-path "
+    ));
 
     fs::write(&log, "").expect("clear fake Cargo log");
     run_coverage(
@@ -210,6 +242,49 @@ fn runs_coverage_with_package_feature_and_target_options() {
     .expect("run selected feature coverage");
     let calls = fs::read_to_string(log).expect("read feature coverage commands");
     assert!(calls.contains("--features first,second"));
+}
+
+#[cfg(unix)]
+#[test]
+fn coverage_excludes_unreachable_lines_and_rejects_uncovered_live_lines() {
+    let temporary_directory = TemporaryDirectory::new();
+    let environment = Environment::new();
+    let log = prepare_cargo(
+        &environment,
+        temporary_directory.path(),
+        &json!({}),
+        &json!({}),
+    );
+    let source = "fn covered() {}\nunreachable!(\"Only JSX events can be mismatched here\")\n";
+    write_coverage_fixture(
+        &environment,
+        temporary_directory.path(),
+        source,
+        &[(1, 1), (2, 0)],
+    );
+    let mut context = context(temporary_directory.path());
+
+    let success = run_coverage(&mut context, false, vec![], None, false)
+        .expect("unreachable line is excluded");
+    assert!(success.contains("raw: 1/2, excluded: 1"));
+
+    write_coverage_fixture(
+        &environment,
+        temporary_directory.path(),
+        "fn covered() {}\nfn uncovered() {}\n",
+        &[(1, 1), (2, 0)],
+    );
+    assert!(
+        run_coverage(&mut context, false, vec![], None, false)
+            .expect_err("uncovered live line should fail")
+            .to_string()
+            .contains("1 measured lines remain uncovered")
+    );
+    assert!(
+        !fs::read_to_string(log)
+            .expect("read fake Cargo calls")
+            .is_empty()
+    );
 }
 
 #[cfg(unix)]
