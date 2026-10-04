@@ -51,14 +51,6 @@ branch = "main"
 See the [Rust Testing guide](context/testing.md) for the `test:before` hook,
 checkout reuse, Cargo patching, and canonical GitHub Actions workflows.
 
-### Agent Context
-
-This crate publishes context files for coding agents. Configure Bake Agent
-Context in your private `bake/` crate, then run
-`cargo bake agent:context:install --package bake-test-rust` to install the
-package's testing guidance for agents. See the Bake Agent Context guide for
-installation details.
-
 ## Releasing
 
 Prepare a release with `cargo bake cargo:version:patch` (or `minor`, `major`,
@@ -89,11 +81,15 @@ See [releases.md](releases.md) for the full release history.
 
 ## See Also
 
-- [bake-test-rust](https://github.com/socketry/bake-test-rust) — Reusable Rust test tasks for Bake <!-- bake-readme:package -->
-
 - [Bake](https://github.com/socketry/bake-rust)
 - [Bake Cargo](https://github.com/socketry/bake-cargo-rust)
 
 ## Contributing
 
 Please open an issue or pull request on [GitHub](https://github.com/socketry/bake-test-rust).
+
+### Agent Context
+
+Before contributing, run `cargo bake agent:context:install` to install context
+and skills from package dependencies. Read `.agents/context/index.md` to find
+available guidance and the relevant skills under `.agents/skills/`.

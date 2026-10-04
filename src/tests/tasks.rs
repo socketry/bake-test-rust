@@ -335,6 +335,7 @@ fn runs_external_tests_for_one_or_many_repositories() {
 
         let cargo_calls = fs::read_to_string(log).expect("read Cargo test calls");
         let expected_count = if all_targets { 2 } else { 1 };
+        assert_eq!(cargo_calls.matches("update").count(), expected_count);
         assert_eq!(
             cargo_calls.matches("test --workspace").count(),
             expected_count
