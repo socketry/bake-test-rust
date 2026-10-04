@@ -67,6 +67,10 @@ for the standard process.
 <!-- bake-readme:releases:start -->
 See [releases.md](releases.md) for the full release history.
 
+### v0.2.3
+
+- Exclude uncovered, single-line `unreachable!("reason")` expressions from measured coverage automatically.
+
 ### v0.2.2
 
 - Declare compatibility with the Bake 0.x API so task libraries can share one task registry
@@ -79,10 +83,6 @@ See [releases.md](releases.md) for the full release history.
 
 - Use the shared `socketry-project` Releasing skill for the standard release
   process and remove references to the duplicate Bake Cargo publishing context.
-
-### v0.2.0
-
-- Add a Bake task for 100% line coverage with missing-line output.
 <!-- bake-readme:releases:end -->
 
 ## See Also
