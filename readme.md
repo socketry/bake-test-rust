@@ -65,6 +65,14 @@ for the standard process.
 <!-- bake-readme:releases:start -->
 See [releases.md](releases.md) for the full release history.
 
+### v0.2.2
+
+- Declare compatibility with the Bake 0.x API so task libraries can share one task registry
+  when upgrading to crate-derived task namespaces.
+
+- Document how to install and discover dependency context and skills.
+- Assert external test runs refresh each checkout's Cargo lockfile.
+
 ### v0.2.1
 
 - Use the shared `socketry-project` Releasing skill for the standard release
@@ -73,10 +81,6 @@ See [releases.md](releases.md) for the full release history.
 ### v0.2.0
 
 - Add a Bake task for 100% line coverage with missing-line output.
-
-### v0.1.2
-
-- Update downstream lockfiles after applying local workspace patches.
 <!-- bake-readme:releases:end -->
 
 ## See Also
