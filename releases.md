@@ -5,6 +5,7 @@
 - Declare compatibility with the Bake 0.x API so task libraries can share one task registry
   when upgrading to crate-derived task namespaces.
 
+- Exclude uncovered, single-line `unreachable!("reason")` expressions from measured coverage automatically.
 - Document how to install and discover dependency context and skills.
 - Assert external test runs refresh each checkout's Cargo lockfile.
 

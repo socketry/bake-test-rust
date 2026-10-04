@@ -53,6 +53,7 @@ impl Environment {
             "CARGO",
             "PATH",
             "BAKE_TEST_CARGO_LOG",
+            "BAKE_TEST_COVERAGE_REPORT",
             "BAKE_TEST_FAIL_ON",
             "BAKE_TEST_METADATA_EXIT",
             "BAKE_TEST_WORKSPACE_METADATA",
@@ -128,6 +129,18 @@ fi
 if [ -n "$BAKE_TEST_FAIL_ON" ] && [ "$1" = "$BAKE_TEST_FAIL_ON" ]; then
 	echo "fake cargo failure" >&2
 	exit 7
+fi
+if [ "$1" = "llvm-cov" ]; then
+	shift
+	while [ "$#" -gt 1 ]; do
+		if [ "$1" = "--output-path" ]; then
+			cp "$BAKE_TEST_COVERAGE_REPORT" "$2"
+			exit $?
+		fi
+		shift
+	done
+	echo "fake llvm-cov invocation did not include --output-path" >&2
+	exit 12
 fi
 exit 0
 "##,
