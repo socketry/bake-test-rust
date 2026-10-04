@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Document how to install and discover dependency context and skills.
+- Assert external test runs refresh each checkout's Cargo lockfile.
 
 ## v0.2.1
 
