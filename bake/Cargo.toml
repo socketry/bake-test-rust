@@ -7,4 +7,4 @@ publish = false
 [dependencies]
 bake = "0.18.0"
 bake-cargo = "0.4.0"
-socketry-project = ">=0.3.4"
+socketry-project = ">=0.3.3"
