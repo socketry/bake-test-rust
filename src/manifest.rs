@@ -3,12 +3,29 @@
 
 use bake::{Error, Result};
 use std::fs;
+use std::io;
 use std::path::{Component, Path, PathBuf};
 use toml_edit::{DocumentMut, InlineTable, Item, Table, Value};
 
 use crate::metadata::Package;
 
 pub(crate) fn patch_checkout(checkout: &Path, packages: &[Package]) -> Result<()> {
+    patch_checkout_with(
+        checkout,
+        packages,
+        |path: &Path| fs::canonicalize(path),
+        relative_path,
+        |path, contents| fs::write(path, contents),
+    )
+}
+
+fn patch_checkout_with(
+    checkout: &Path,
+    packages: &[Package],
+    canonicalize: impl Fn(&Path) -> io::Result<PathBuf>,
+    make_relative_path: impl Fn(&Path, &Path) -> Result<PathBuf>,
+    write: impl Fn(&Path, &str) -> io::Result<()>,
+) -> Result<()> {
     let manifest_path = checkout.join("Cargo.toml");
     let document = fs::read_to_string(&manifest_path)
         .map_err(|error| Error::new(format!("{}: {error}", manifest_path.display())))?;
@@ -19,16 +36,16 @@ pub(crate) fn patch_checkout(checkout: &Path, packages: &[Package]) -> Result<()
         ))
     })?;
 
-    let checkout = checkout.canonicalize()?;
+    let checkout = canonicalize(checkout)?;
     let mut changed = false;
 
     for package in packages {
         let package_directory = package
             .manifest_path
             .parent()
-            .ok_or_else(|| Error::new("workspace package manifest has no parent directory"))?
-            .canonicalize()?;
-        let relative_path = relative_path(&checkout, &package_directory)?;
+            .ok_or_else(|| Error::new("workspace package manifest has no parent directory"))?;
+        let package_directory = canonicalize(package_directory)?;
+        let relative_path = make_relative_path(&checkout, &package_directory)?;
         let relative_path = relative_path.to_string_lossy().replace('\\', "/");
 
         let patch = manifest
@@ -75,7 +92,7 @@ pub(crate) fn patch_checkout(checkout: &Path, packages: &[Package]) -> Result<()
     }
 
     if changed {
-        fs::write(manifest_path, manifest.to_string())?;
+        write(&manifest_path, &manifest.to_string())?;
     }
 
     Ok(())

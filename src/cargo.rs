@@ -34,14 +34,14 @@ pub(crate) fn run_with_output_path(
     let status = context
         .command(executable())
         .args(arguments)
-        .args(["--json", "--show-missing-lines", "--output-path"])
+        .args(["--json", "--output-path"])
         .arg(output_path)
         .status()?;
     if status.success() {
         Ok(())
     } else {
         Err(Error::new(format!(
-            "cargo {} --json --show-missing-lines --output-path {} failed: {status}",
+            "cargo {} --json --output-path {} failed: {status}",
             arguments.join(" "),
             output_path.display()
         )))

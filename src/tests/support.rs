@@ -52,6 +52,7 @@ impl Environment {
         let keys = [
             "CARGO",
             "PATH",
+            "TMPDIR",
             "BAKE_TEST_CARGO_LOG",
             "BAKE_TEST_COVERAGE_REPORT",
             "BAKE_TEST_FAIL_ON",

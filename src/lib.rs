@@ -42,12 +42,12 @@ fn run(
     Ok("Cargo workspace tests passed".to_owned())
 }
 
-/// Run workspace tests and require complete line coverage.
+/// Run workspace tests and require complete source-region coverage.
 ///
 /// Documentation tests run through Cargo because `cargo-llvm-cov` does not
 /// currently support stable doctest coverage. The remaining test targets run
-/// under `cargo-llvm-cov`; uncovered lines fail the task unless they are
-/// explicitly marked as unreachable.
+/// under `cargo-llvm-cov`; source regions inside `unreachable!()` calls and
+/// syntax-only source spans are excluded from the coverage gate.
 #[bake::task(name = "test:coverage")]
 fn run_coverage(
     context: &mut Context,

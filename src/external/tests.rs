@@ -107,6 +107,24 @@ fn reports_git_clone_failures() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn reports_git_command_startup_errors() {
+    let environment = Environment::new();
+    let temporary_directory = TemporaryDirectory::new();
+    let bin = temporary_directory.path().join("empty-bin");
+    fs::create_dir_all(&bin).expect("create empty command directory");
+    environment.set("PATH", &bin);
+    let context = Registry::new().context(temporary_directory.path());
+    let downstream = repository("downstream", "socketry/downstream");
+
+    assert!(checkout(&context, &downstream).is_err());
+
+    let existing = temporary_directory.path().join("external/existing");
+    fs::create_dir_all(existing.join(".git")).expect("create existing checkout");
+    assert!(checkout(&context, &repository("existing", "socketry/downstream")).is_err());
+}
+
 #[test]
 fn normalizes_github_repository_urls() {
     for (repository, expected) in [
@@ -154,10 +172,16 @@ fn validates_that_downstream_dependencies_select_local_packages() {
     fs::write(
         &metadata,
         json!({
-            "packages": [{
-                "id": "path+file:///workspace/local#local@0.1.0",
-                "name": "local"
-            }],
+            "packages": [
+                {"name": "missing-id"},
+                {"id": "missing-name"},
+                {"id": 1, "name": "invalid-id"},
+                {"id": "invalid-name", "name": 1},
+                {
+                    "id": "path+file:///workspace/local#local@0.1.0",
+                    "name": "local"
+                }
+            ],
             "resolve": {"nodes": [{"deps": [
                 {"pkg": "path+file:///workspace/local#local@0.1.0"},
                 {"pkg": "unrelated-package-id"}
@@ -208,6 +232,9 @@ fn validates_that_downstream_dependencies_select_local_packages() {
             .to_string()
             .contains("could not parse downstream Cargo metadata")
     );
+
+    _environment.set("CARGO", temporary_directory.path().join("missing-cargo"));
+    assert!(ensure_local_patches_are_selected(&checkout, &[]).is_err());
 }
 
 #[cfg(unix)]

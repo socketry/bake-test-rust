@@ -8,24 +8,42 @@ fn main() -> Result<()> {
 }
 
 #[cfg(test)]
+#[bake::task(name = "test")]
+fn duplicate_test_task(#[bake(context)] _context: &mut bake::Context) -> Result<bake::Value> {
+    Ok(bake::Value::Null)
+}
+
+#[cfg(test)]
 mod tests {
     use bake::{Arguments, Context, Parameter, Registry, Result, Task, Value};
     use socketry_project::after_version_bump;
     use std::fs;
 
+    #[test]
+    fn reports_duplicate_discovered_tasks() {
+        let error = super::main().expect_err("duplicate task registration should fail");
+        assert!(error.to_string().contains("duplicate task \"test\""));
+
+        let mut context = Registry::new().context(".");
+        super::duplicate_test_task(&mut context).expect("duplicate task fixture should run");
+    }
+
     fn license_update(context: &mut Context, _arguments: &Arguments) -> Result<Value> {
-        fs::write(context.root().join("license-called"), "yes")?;
+        fs::write(context.root().join("license-called"), "yes").expect("write license marker");
         Ok(Value::Null)
     }
 
     fn releases_update(context: &mut Context, arguments: &Arguments) -> Result<Value> {
-        let version = arguments.required::<String>("version")?;
-        fs::write(context.root().join("release-version"), version)?;
+        let version = arguments
+            .required::<String>("version")
+            .expect("version is supplied to the release task");
+        fs::write(context.root().join("release-version"), version)
+            .expect("write release version marker");
         Ok(Value::Null)
     }
 
     fn readme_update(context: &mut Context, _arguments: &Arguments) -> Result<Value> {
-        fs::write(context.root().join("readme-called"), "yes")?;
+        fs::write(context.root().join("readme-called"), "yes").expect("write Readme marker");
         Ok(Value::Null)
     }
 
