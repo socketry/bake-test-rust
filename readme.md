@@ -1,15 +1,10 @@
 # `bake-test-rust`
 
-Reusable Bake tasks for running Rust tests and testing downstream repositories
-against local Cargo workspace packages.
+Reusable Bake tasks for running Rust tests and testing downstream repositories against local Cargo workspace packages.
 
 ## Motivation
 
-Rust provides a good test runner through Cargo, but it does not provide a shared
-way to prepare project resources or exercise selected downstream crates. This
-package gives Rust projects a consistent `bake test`, `bake test:coverage`,
-and `bake test:external` interface while keeping Cargo and cargo-llvm-cov as
-the test runners.
+Rust provides a good test runner through Cargo, but it does not provide a shared way to prepare project resources or exercise selected downstream crates. This package gives Rust projects a consistent `bake test`, `bake test:coverage`, and `bake test:external` interface while keeping Cargo and cargo-llvm-cov as the test runners.
 
 ## Usage
 
@@ -17,7 +12,7 @@ Add the task crate to the private `bake/` package:
 
 ```toml
 [dependencies]
-bake-test-rust = "0.2"
+bake-test-rust = "0.3"
 ```
 
 Link its tasks from `bake/src/main.rs`:
@@ -34,13 +29,7 @@ cargo bake test:coverage
 cargo bake test:external
 ```
 
-The coverage task runs documentation tests and requires 100% measured
-source-region coverage for the selected workspace test configuration.
-Regions inside `unreachable!()` calls are excluded automatically. It reports
-uncovered source locations when the gate fails.
-Install `cargo-llvm-cov` first; see the
-[Rust Testing guide](context/testing.md) for feature selection and architecture notes.
-Use `--package name` to limit a workspace run to one package.
+The coverage task runs documentation tests and requires 100% measured source-region coverage for the selected workspace test configuration. Regions inside `unreachable!()` calls are excluded automatically. It reports uncovered source locations when the gate fails. Install `cargo-llvm-cov` first; see the [Rust Testing guide](context/testing.md) for feature selection and architecture notes. Use `--package name` to limit a workspace run to one package.
 
 Configure downstream repositories in the root `Cargo.toml`:
 
@@ -50,39 +39,32 @@ repository = "https://github.com/socketry/downstream-project"
 branch = "main"
 ```
 
-See the [Rust Testing guide](context/testing.md) for the `test:before` hook,
-checkout reuse, Cargo patching, and canonical GitHub Actions workflows.
+See the [Rust Testing guide](context/testing.md) for the `test:before` hook, checkout reuse, Cargo patching, and canonical GitHub Actions workflows.
 
 ## Releasing
 
-Prepare a release with `cargo bake cargo:version:patch` (or `minor`, `major`,
-or `bump --version X.Y.Z`), then run `cargo bake cargo:release` and open a
-pull request. After review and merge, GitHub Actions publishes the release
-when the configured `crates-io` environment approves it. Follow the shared
-[Releasing skill](https://github.com/socketry/socketry-project-rust/blob/main/context/releasing.md)
-for the standard process.
+Prepare a release with `cargo bake cargo:version:patch` (or `minor`, `major`, or `bump --version X.Y.Z`), then run `cargo bake cargo:release` and open a pull request. After review and merge, GitHub Actions publishes the release when the configured `crates-io` environment approves it. Follow the shared [Releasing skill](https://github.com/socketry/socketry-project-rust/blob/main/context/releasing.md) for the standard process.
 
 ## Releases
 
 <!-- bake-readme:releases:start -->
+
 See [releases.md](releases.md) for the full release history.
+
+### v0.3.1
+
+- Adopt `socketry-project` 0.3.7 for shared project tasks and Markdown normalization.
+- Require the aggregate test and coverage result for pull request merges.
+- Document the canonical aggregate test gate and current coverage dependency.
 
 ### v0.3.0
 
-- Enforce complete source-region coverage, excluding regions inside
-  invariant-only `unreachable!()` calls.
+- Enforce complete source-region coverage, excluding regions inside invariant-only `unreachable!()` calls.
 
 ### v0.2.3
 
 - Exclude uncovered, single-line `unreachable!("reason")` expressions from measured coverage automatically.
 
-### v0.2.2
-
-- Declare compatibility with the Bake 0.x API so task libraries can share one task registry
-  when upgrading to crate-derived task namespaces.
-
-- Document how to install and discover dependency context and skills.
-- Assert external test runs refresh each checkout's Cargo lockfile.
 <!-- bake-readme:releases:end -->
 
 ## See Also
@@ -96,6 +78,4 @@ Please open an issue or pull request on [GitHub](https://github.com/socketry/bak
 
 ### Agent Context
 
-Before contributing, run `cargo bake agent:context:install` to install context
-and skills from package dependencies. Read `.agents/context/index.md` to find
-available guidance and the relevant skills under `.agents/skills/`.
+Run `cargo bake agent:context:install` to install shared context and skills. Read `.agents/context/index.md` to find relevant guides, follow `agents.md` if present, and apply skills under `.agents/skills/`. The installer preserves repository-owned `agents.md`; it does not create or regenerate that file.

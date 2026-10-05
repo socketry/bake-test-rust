@@ -47,6 +47,16 @@ mod tests {
         Ok(Value::Null)
     }
 
+    fn normalize_markdown(context: &mut Context, arguments: &Arguments) -> Result<Value> {
+        let paths = arguments
+            .repeated::<String>("paths")
+            .expect("valid Markdown paths");
+        assert!(context.root().join("readme-called").exists());
+        fs::write(context.root().join("markdown-paths"), paths.join("\n"))
+            .expect("write Markdown paths");
+        Ok(Value::Null)
+    }
+
     #[test]
     fn updates_release_files_in_order_with_the_bumped_version() {
         let unique = std::time::SystemTime::now()
@@ -73,6 +83,14 @@ mod tests {
         registry
             .register(Task::new("readme:update", "", Vec::new(), readme_update))
             .expect("register readme task");
+        registry
+            .register(Task::new(
+                "markdown:normalize",
+                "",
+                vec![Parameter::new::<String>("paths").variadic()],
+                normalize_markdown,
+            ))
+            .expect("register Markdown task");
         let mut context = registry.context(&root);
 
         after_version_bump(&mut context, "1.2.3".to_owned()).expect("run release update tasks");
@@ -88,6 +106,10 @@ mod tests {
         assert_eq!(
             fs::read_to_string(root.join("readme-called")).unwrap(),
             "yes"
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("markdown-paths")).unwrap(),
+            "license.md\nreadme.md\nreleases.md"
         );
         drop(context);
         fs::remove_dir_all(root).expect("remove temporary Bake project");
