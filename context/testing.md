@@ -207,12 +207,18 @@ External compatibility testing is optional. Add
 `.github/workflows/external.yml` only when the Cargo metadata list contains one
 or more selected downstream repositories:
 
+Use the same event filters as `test.yml`: pull requests targeting `main` and
+pushes to `main`. This prevents duplicate downstream test runs for a pull
+request branch while still checking the merged default branch.
+
 ```yaml
 name: External Tests
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
