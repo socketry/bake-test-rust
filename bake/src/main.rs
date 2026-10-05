@@ -48,7 +48,9 @@ mod tests {
     }
 
     fn normalize_markdown(context: &mut Context, arguments: &Arguments) -> Result<Value> {
-        let paths = arguments.repeated::<String>("paths")?;
+        let paths = arguments
+            .repeated::<String>("paths")
+            .expect("valid Markdown paths");
         assert!(context.root().join("readme-called").exists());
         fs::write(context.root().join("markdown-paths"), paths.join("\n"))
             .expect("write Markdown paths");
