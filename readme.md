@@ -10,15 +10,10 @@ Rust provides a good test runner through Cargo, but it does not provide a shared
 
 Add the task crate to the private `bake/` package:
 
-```toml
-[dependencies]
-bake-test-rust = "0.3"
-```
-
-Link its tasks from `bake/src/main.rs`:
-
-```rust,ignore
-use bake_test_rust as _;
+```sh
+cargo bake --regenerate
+cargo add --manifest-path bake/Cargo.toml bake-test-rust
+cargo bake --regenerate
 ```
 
 Then run the workspace tests:
@@ -51,6 +46,10 @@ Prepare a release with `cargo bake cargo:version:patch` (or `minor`, `major`, or
 
 See [releases.md](releases.md) for the full release history.
 
+### v0.3.2
+
+- Use Cargo-selected dependency versions and generated task links in setup instructions.
+
 ### v0.3.1
 
 - Adopt `socketry-project` 0.3.7 for shared project tasks and Markdown normalization.
@@ -60,10 +59,6 @@ See [releases.md](releases.md) for the full release history.
 ### v0.3.0
 
 - Enforce complete source-region coverage, excluding regions inside invariant-only `unreachable!()` calls.
-
-### v0.2.3
-
-- Exclude uncovered, single-line `unreachable!("reason")` expressions from measured coverage automatically.
 
 <!-- bake-readme:releases:end -->
 

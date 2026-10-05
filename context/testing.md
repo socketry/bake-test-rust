@@ -1,14 +1,11 @@
 # Rust Testing Tasks
 
-Add `bake-test-rust` as a dependency of the private `bake/` package and link it from `bake/src/main.rs`:
+Add `bake-test-rust` as a dependency of the private `bake/` package and regenerate its task links:
 
-```toml
-[dependencies]
-bake-test-rust = "0.3"
-```
-
-```rust,ignore
-use bake_test_rust as _;
+```sh
+cargo bake --regenerate
+cargo add --manifest-path bake/Cargo.toml bake-test-rust
+cargo bake --regenerate
 ```
 
 The package registers `test`, `test:coverage`, and `test:external` tasks. `test` runs `cargo test --workspace --locked`; `test:external` runs Cargo tests in the selected downstream repositories without `--locked`, because the lockfiles need to resolve local path patches.
