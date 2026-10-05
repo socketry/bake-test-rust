@@ -56,10 +56,12 @@ a marker. It applies only to Rust source regions contained within the macro
 call; other uncovered code on the same line remains measured. The source scan
 ignores strings and comments.
 
-Source spans with no executable text are excluded as syntax-only. Examples
-include a closing brace or the name of a macro such as `matches!`; the macro's
-expanded code and its argument expressions remain measured. Operators such as
-`?` remain measured because they represent executable behavior.
+Coverage uses the source regions reported by LLVM without classifying regions
+by their source text. A reported region remains measured even if its span
+contains only a delimiter or a macro name: LLVM can map executable behavior to
+such a span, including a branch outcome mapped to a closing brace. Inspect an
+uncovered region and the behavior represented by its mapping; do not exclude it
+solely because its span looks syntactic.
 
 If `cargo-llvm-cov` reports a genuinely invariant-only `unreachable!()` call,
 include its reason in the panic message:

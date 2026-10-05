@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Enforce complete source-region coverage while excluding syntax-only spans and
-  regions inside invariant-only `unreachable!()` calls.
+- Enforce complete source-region coverage, excluding regions inside
+  invariant-only `unreachable!()` calls.
 
 ## v0.2.3
 

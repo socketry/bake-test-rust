@@ -46,8 +46,8 @@ fn run(
 ///
 /// Documentation tests run through Cargo because `cargo-llvm-cov` does not
 /// currently support stable doctest coverage. The remaining test targets run
-/// under `cargo-llvm-cov`; source regions inside `unreachable!()` calls and
-/// syntax-only source spans are excluded from the coverage gate.
+/// under `cargo-llvm-cov`; source regions inside `unreachable!()` calls are
+/// excluded from the coverage gate.
 #[bake::task(name = "test:coverage")]
 fn run_coverage(
     context: &mut Context,

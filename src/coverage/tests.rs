@@ -3,7 +3,7 @@
 
 use super::{
     CoverageReport, Position, SourceRegion, compare_regions, find_unreachable_macros,
-    is_macro_name, resolve_source_path, summarize,
+    resolve_source_path, summarize,
 };
 use crate::test_support::TemporaryDirectory;
 use serde_json::{Value, json};
@@ -222,7 +222,7 @@ fn does_not_treat_macro_text_inside_strings_or_comments_as_unreachable() {
 }
 
 #[test]
-fn excludes_only_syntax_spans_without_excluding_operators() {
+fn measures_regions_with_macro_names_and_delimiters() {
     let directory = TemporaryDirectory::new();
     let source = "fn work() { matches!(value, Some(_)); let result = call()?; }\n";
     let path = source_path(&directory, source);
@@ -242,10 +242,13 @@ fn excludes_only_syntax_spans_without_excluding_operators() {
     let summary = summarize(&report, directory.path()).expect("summarize coverage");
 
     assert!(!summary.is_complete());
-    assert_eq!(summary.measured_regions, 2);
+    assert_eq!(summary.measured_regions, 4);
     assert_eq!(summary.covered_regions, 1);
-    assert_eq!(summary.excluded_syntax_regions, 2);
-    assert!(summary.failure_message().contains("1:58-1:59"));
+    assert!(
+        summary
+            .failure_message()
+            .contains("3 source regions remain uncovered")
+    );
 }
 
 #[test]
@@ -381,15 +384,6 @@ fn skips_comments_and_string_and_character_literals() {
         &source[ranges[0].clone()],
         "unreachable /* comment */ ! { call(\"}\") }"
     );
-}
-
-#[test]
-fn recognizes_macro_name_syntax_spans() {
-    assert!(is_macro_name("matches!"));
-    assert!(is_macro_name("std::matches!"));
-    assert!(!is_macro_name("matches!(value)"));
-    assert!(is_macro_name("value!"));
-    assert!(!is_macro_name("!"));
 }
 
 #[test]

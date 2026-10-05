@@ -82,7 +82,6 @@ pub(crate) struct Summary {
     measured_regions: usize,
     uncovered_regions: Vec<SourceRegion>,
     excluded_unreachable_regions: usize,
-    excluded_syntax_regions: usize,
 }
 
 impl Summary {
@@ -92,21 +91,17 @@ impl Summary {
 
     pub(crate) fn success_message(&self) -> String {
         format!(
-            "Region coverage passed: {}/{} measured source regions covered (excluded: {} unreachable regions, {} syntax-only regions)",
-            self.covered_regions,
-            self.measured_regions,
-            self.excluded_unreachable_regions,
-            self.excluded_syntax_regions,
+            "Region coverage passed: {}/{} measured source regions covered (excluded: {} unreachable regions)",
+            self.covered_regions, self.measured_regions, self.excluded_unreachable_regions,
         )
     }
 
     pub(crate) fn failure_message(&self) -> String {
         let mut message = format!(
-            "region coverage is {}/{} measured source regions (excluded: {} unreachable regions, {} syntax-only regions); {} source regions remain uncovered",
+            "region coverage is {}/{} measured source regions (excluded: {} unreachable regions); {} source regions remain uncovered",
             self.covered_regions,
             self.measured_regions,
             self.excluded_unreachable_regions,
-            self.excluded_syntax_regions,
             self.uncovered_regions.len(),
         );
 
@@ -207,15 +202,6 @@ impl SourceFile {
         self.unreachable_macros
             .iter()
             .any(|macro_span| span.start >= macro_span.start && span.end <= macro_span.end)
-    }
-
-    fn is_syntax_only(&self, span: &Range<usize>) -> bool {
-        let text = &self.text[span.clone()];
-        let text = text.trim();
-
-        text.is_empty()
-            || text.chars().all(|character| "{}[](),;".contains(character))
-            || is_macro_name(text)
     }
 }
 
@@ -326,7 +312,6 @@ fn summarize(report: &str, source_root: &Path) -> Result<Summary> {
         measured_regions: 0,
         uncovered_regions: Vec::new(),
         excluded_unreachable_regions: 0,
-        excluded_syntax_regions: 0,
     };
 
     for (region, covered) in regions {
@@ -336,8 +321,6 @@ fn summarize(report: &str, source_root: &Path) -> Result<Summary> {
         let span = source.span(&region)?;
         if source.is_unreachable(&span) {
             summary.excluded_unreachable_regions += 1;
-        } else if source.is_syntax_only(&span) {
-            summary.excluded_syntax_regions += 1;
         } else {
             summary.measured_regions += 1;
             if covered {
@@ -379,22 +362,6 @@ fn resolve_source_path(reported_path: &Path, source_root: &Path) -> PathBuf {
     };
 
     fs::canonicalize(&path).unwrap_or(path)
-}
-
-fn is_macro_name(text: &str) -> bool {
-    let Some(path) = text.strip_suffix('!') else {
-        return false;
-    };
-    let path = path.strip_prefix("::").unwrap_or(path);
-    !path.is_empty()
-        && path.split("::").all(|segment| {
-            let segment = segment.strip_prefix("r#").unwrap_or(segment);
-            let mut characters = segment.chars();
-            characters
-                .next()
-                .is_some_and(|character| character == '_' || character.is_alphabetic())
-                && characters.all(|character| character == '_' || character.is_alphanumeric())
-        })
 }
 
 fn find_unreachable_macros(source: &str) -> Vec<Range<usize>> {
