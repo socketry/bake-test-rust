@@ -160,12 +160,19 @@ regions. Passing
 not add a separate `cargo bake test` step to this job; the coverage task runs
 the tests itself.
 
+Filter both `push` and `pull_request` to `main`. Pull request updates then run
+through `pull_request`, without a duplicate run from the feature-branch push;
+merging to `main` still runs the workflow after the merge. Keep
+`workflow_dispatch` for manual runs.
+
 ```yaml
 name: Test
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -200,12 +207,18 @@ External compatibility testing is optional. Add
 `.github/workflows/external.yml` only when the Cargo metadata list contains one
 or more selected downstream repositories:
 
+Use the same event filters as `test.yml`: pull requests targeting `main` and
+pushes to `main`. This prevents duplicate downstream test runs for a pull
+request branch while still checking the merged default branch.
+
 ```yaml
 name: External Tests
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
