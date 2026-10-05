@@ -18,6 +18,9 @@ manifest = "bake/Cargo.toml"
 [workspace.metadata.bake.release]
 reviewers = ["socketry/managers"]
 
+[patch.crates-io]
+bake-test-rust = { path = "." }
+
 [lib]
 name = "bake_test_rust"
 

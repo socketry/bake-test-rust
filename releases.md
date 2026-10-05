@@ -1,5 +1,10 @@
 # Releases
 
+## Unreleased
+
+- Enforce complete source-region coverage, excluding regions inside
+  invariant-only `unreachable!()` calls.
+
 ## v0.2.3
 
 - Exclude uncovered, single-line `unreachable!("reason")` expressions from measured coverage automatically.

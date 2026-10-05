@@ -1,9 +1,10 @@
 // Released under the MIT License.
 // Copyright, 2026, by Samuel Williams.
 
-use super::{patch_checkout, relative_path_components};
+use super::{patch_checkout, patch_checkout_with, relative_path, relative_path_components};
 use crate::metadata::Package;
 use crate::test_support::TemporaryDirectory;
+use bake::Error;
 use std::fs;
 use std::path::PathBuf;
 
@@ -101,6 +102,70 @@ fn rejects_package_manifest_paths_without_a_parent() {
             .to_string()
             .contains("workspace package manifest has no parent directory")
     );
+
+    let missing_parent = temporary_directory.path().join("missing/Cargo.toml");
+    assert!(patch_checkout(&checkout, &[package(missing_parent)]).is_err());
+}
+
+#[test]
+fn propagates_canonicalization_relative_path_and_write_errors() {
+    let temporary_directory = TemporaryDirectory::new();
+    let checkout = temporary_directory.path().join("downstream");
+    let package_directory = temporary_directory.path().join("workspace/example");
+    fs::create_dir_all(&checkout).expect("create downstream checkout");
+    fs::create_dir_all(&package_directory).expect("create local package directory");
+    let manifest_path = checkout.join("Cargo.toml");
+    fs::write(&manifest_path, "[workspace]\nmembers = []\n").expect("write downstream manifest");
+    let package = package(package_directory.join("Cargo.toml"));
+
+    let error = patch_checkout_with(
+        &checkout,
+        std::slice::from_ref(&package),
+        |path| {
+            if path == checkout {
+                Err(std::io::Error::other("checkout canonicalization failed"))
+            } else {
+                fs::canonicalize(path)
+            }
+        },
+        relative_path,
+        |path, contents| fs::write(path, contents),
+    )
+    .expect_err("checkout canonicalization failure should propagate");
+    assert!(
+        error
+            .to_string()
+            .contains("checkout canonicalization failed")
+    );
+
+    let error = patch_checkout_with(
+        &checkout,
+        std::slice::from_ref(&package),
+        |path: &std::path::Path| fs::canonicalize(path),
+        |_, _| Err(Error::new("relative path calculation failed")),
+        |path, contents| fs::write(path, contents),
+    )
+    .expect_err("relative path failure should propagate");
+    assert!(
+        error
+            .to_string()
+            .contains("relative path calculation failed")
+    );
+
+    let error = patch_checkout_with(
+        &checkout,
+        std::slice::from_ref(&package),
+        |path: &std::path::Path| fs::canonicalize(path),
+        relative_path,
+        |_, _| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "manifest write failed",
+            ))
+        },
+    )
+    .expect_err("manifest write failure should propagate");
+    assert!(error.to_string().contains("manifest write failed"));
 }
 
 #[test]

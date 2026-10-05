@@ -114,17 +114,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bake-test-rust"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a9c5b715c668d525d144fedae81c64c1871de6f4d01bb9ce76376ce85240ef8"
-dependencies = [
- "bake",
- "serde_json",
- "toml_edit",
-]
-
-[[package]]
 name = "bake-test-rust-project"
 version = "0.0.0"
 dependencies = [
@@ -675,7 +664,7 @@ dependencies = [
  "bake-license",
  "bake-readme",
  "bake-releases",
- "bake-test-rust 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bake-test-rust",
 ]
 
 [[package]]

@@ -32,15 +32,17 @@ Rust installation such as Homebrew's `cargo` comes first on `PATH`, plain
 `cargo bake` may use that compiler and fail to find the Rustup component.
 
 The task calls the optional `test:before` hook once, runs documentation tests
-with Cargo, then runs workspace tests under `cargo-llvm-cov`. The report prints
-uncovered lines, and the command fails if any measured executable line remains
-uncovered. It covers the whole workspace by default; use `--package name` to
-limit coverage to one package. Coverage uses the default feature set unless
+with Cargo, then runs workspace tests under `cargo-llvm-cov`. It reports each
+uncovered source region and fails if any measured region remains uncovered.
+Regions with identical source spans are merged across function instantiations;
+distinct source spans remain separate, including spans on the same line. The
+task covers the whole workspace by default; use `--package name` to limit
+coverage to one package. Coverage uses the default feature set unless
 `--all-features true` or one or more repeatable `--features name` arguments are
 supplied. Choose one feature configuration per invocation; the task rejects
 combining `--all-features` and `--features`.
 
-### Unreachable lines
+### Invariant-only `unreachable!()` calls
 
 Rust checks local type-level impossibilities, such as exhaustive matches over
 closed enums. It does not generally prove runtime invariants that depend on
@@ -48,25 +50,32 @@ relationships between values, parser behavior, or upstream code. An
 `unreachable!()` is a runtime assertion that panics if that invariant is
 violated; it is not proof that the branch cannot occur.
 
-If `cargo-llvm-cov` reports a genuinely invariant-only `unreachable!()` line as
-uncovered, include its reason in the panic message:
+Regions inside an `unreachable!()` invocation are excluded from coverage,
+including multiline invocations. This exclusion is automatic and does not need
+a marker. It applies only to Rust source regions contained within the macro
+call; other uncovered code on the same line remains measured. The source scan
+ignores strings and comments.
+
+Coverage uses the source regions reported by LLVM without classifying regions
+by their source text. A reported region remains measured even if its span
+contains only a delimiter or a macro name: LLVM can map executable behavior to
+such a span, including a branch outcome mapped to a closing brace. Inspect an
+uncovered region and the behavior represented by its mapping; do not exclude it
+solely because its span looks syntactic.
+
+If `cargo-llvm-cov` reports a genuinely invariant-only `unreachable!()` call,
+include its reason in the panic message:
 
 ```rust
 _ => unreachable!("Only JSX events can be mismatched here")
 ```
 
-An uncovered, single-line `unreachable!("reason")` call is excluded
-automatically from measured coverage when it stands alone or is the sole
-expression in a match arm. The macro asserts that the path should not be
-reached; it does not prove that the invariant is correct. The task reports raw
-and measured coverage separately, along with the number of excluded lines. All
-other executable lines must still reach 100% coverage.
-
-Use `unreachable!()` only after checking the invariant against supported
-inputs. If supported input can reach the branch, handle and test that case
-instead of asserting it is unreachable. Test valid inputs and the boundary that
+The macro asserts that the path should not be reached; it does not prove that
+the invariant is correct. Use `unreachable!()` only after checking the
+invariant against supported inputs. Test valid inputs and the boundary that
 establishes the invariant; do not manufacture an impossible private state
-solely to execute the panic.
+solely to execute the panic. All other source-backed regions must reach 100%
+coverage.
 
 The canonical GitHub Actions workflow below installs the required Rust
 components and coverage tool. The task measures the runner's target and feature
@@ -76,8 +85,9 @@ target.
 
 The coverage task runs documentation tests but does not include them in the
 coverage report; LLVM doctest coverage is still unstable. It uses the JSON
-report to enforce 100% of measured executable lines and asks `cargo-llvm-cov` to
-print uncovered source lines. Branch coverage is not part of this task.
+function-region data to enforce 100% of measured source regions. This task
+measures source regions, not LLVM's separate experimental branch-coverage
+metric.
 
 ## Before-test hook
 
@@ -144,7 +154,8 @@ registry version instead of the local patch.
 
 Use this `test.yml` for Socketry Rust repositories. It runs formatting,
 Clippy, documentation tests, and workspace coverage. The coverage task invokes
-the optional `test:before` hook and requires 100% line coverage. Passing
+the optional `test:before` hook and requires 100% coverage of measured source
+regions. Passing
 `--all-targets true` includes examples and benchmarks in the coverage run. Do
 not add a separate `cargo bake test` step to this job; the coverage task runs
 the tests itself.
@@ -177,13 +188,13 @@ jobs:
         run: cargo install cargo-llvm-cov --locked
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - name: Run tests and require complete line coverage
+      - name: Run tests and require complete source-region coverage
         run: cargo bake --locked test:coverage --all-targets true
 ```
 
 The standard `test` task remains useful for quick local runs without a coverage
-report. CI uses `test:coverage` so it enforces the organization-wide line
-coverage requirement.
+report. CI uses `test:coverage` so it enforces the organization-wide
+source-region coverage requirement.
 
 External compatibility testing is optional. Add
 `.github/workflows/external.yml` only when the Cargo metadata list contains one

@@ -1,7 +1,7 @@
 // Released under the MIT License.
 // Copyright, 2026, by Samuel Williams.
 
-use super::{executable_from, metadata_in, run, run_in, update_in};
+use super::{executable_from, metadata_in, run, run_in, run_with_output_path, update_in};
 use crate::test_support::{Environment, TemporaryDirectory};
 use bake::Registry;
 use std::ffi::OsString;
@@ -63,6 +63,7 @@ fn cargo_commands_report_success_failure_and_startup_errors() {
 
     _environment.set("CARGO", temporary_directory.path().join("missing-cargo"));
     assert!(run(&context, &["test".to_owned()]).is_err());
+    assert!(run_with_output_path(&context, &["llvm-cov".to_owned()], &log).is_err());
     assert!(run_in(temporary_directory.path(), &["test".to_owned()]).is_err());
     assert!(metadata_in(temporary_directory.path(), false).is_err());
 

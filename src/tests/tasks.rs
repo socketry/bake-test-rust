@@ -68,18 +68,26 @@ fn write_coverage_fixture(
     fs::write(&source_path, source).expect("write coverage source");
 
     let report_path = root.join("coverage.json");
-    let segments = line_data
+    let regions = line_data
         .iter()
-        .map(|(number, count)| json!([number, 1, count, true, true, false]))
+        .map(|(number, count)| {
+            let line = source
+                .lines()
+                .nth(number - 1)
+                .expect("coverage source line");
+            json!([number, 1, number, line.len() + 1, count, 0, 0, 0])
+        })
         .collect::<Vec<_>>();
-    let covered = line_data.iter().filter(|(_, count)| *count > 0).count();
     let report = json!({
         "data": [{
             "files": [{
                 "filename": source_path,
-                "summary": {"lines": {"count": line_data.len(), "covered": covered}},
-                "segments": segments,
-            }]
+            }],
+            "functions": [{
+                "name": "fixture",
+                "filenames": [source_path],
+                "regions": regions,
+            }],
         }]
     });
     fs::write(&report_path, report.to_string()).expect("write fake coverage report");
@@ -187,6 +195,14 @@ fn propagates_test_hook_and_cargo_failures() {
     );
     assert!(fs::read_to_string(&log).expect("read Cargo log").is_empty());
 
+    let mut coverage_hook_context = context_with_hook(temporary_directory.path(), hook_fails);
+    assert!(
+        run_coverage(&mut coverage_hook_context, false, vec![], None, false)
+            .expect_err("coverage task hook failure should propagate")
+            .to_string()
+            .contains("pre-test hook failed")
+    );
+
     let mut context = context(temporary_directory.path());
     environment.set("BAKE_TEST_FAIL_ON", "test");
     assert!(
@@ -213,13 +229,11 @@ fn runs_coverage_with_package_feature_and_target_options() {
     assert!(
         run_coverage(&mut context, false, vec![], None, false)
             .expect("run default coverage task")
-            .starts_with("Line coverage passed: 1/1 measured lines covered")
+            .starts_with("Region coverage passed: 1/1 measured source regions")
     );
     let calls = fs::read_to_string(&log).expect("read default coverage commands");
     assert!(calls.contains("test --workspace --locked --doc\n"));
-    assert!(
-        calls.contains("llvm-cov --workspace --locked --json --show-missing-lines --output-path ")
-    );
+    assert!(calls.contains("llvm-cov --workspace --locked --json --output-path "));
     assert!(!calls.contains("--features"));
 
     fs::write(&log, "").expect("clear fake Cargo log");
@@ -228,7 +242,7 @@ fn runs_coverage_with_package_feature_and_target_options() {
     let calls = fs::read_to_string(&log).expect("read all-features coverage commands");
     assert!(calls.contains("test --package library --locked --doc --all-features\n"));
     assert!(calls.contains(
-        "llvm-cov --package library --locked --all-targets --all-features --json --show-missing-lines --output-path "
+        "llvm-cov --package library --locked --all-targets --all-features --json --output-path "
     ));
 
     fs::write(&log, "").expect("clear fake Cargo log");
@@ -246,7 +260,7 @@ fn runs_coverage_with_package_feature_and_target_options() {
 
 #[cfg(unix)]
 #[test]
-fn coverage_excludes_unreachable_lines_and_rejects_uncovered_live_lines() {
+fn coverage_excludes_unreachable_regions_and_rejects_uncovered_live_regions() {
     let temporary_directory = TemporaryDirectory::new();
     let environment = Environment::new();
     let log = prepare_cargo(
@@ -266,7 +280,8 @@ fn coverage_excludes_unreachable_lines_and_rejects_uncovered_live_lines() {
 
     let success = run_coverage(&mut context, false, vec![], None, false)
         .expect("unreachable line is excluded");
-    assert!(success.contains("raw: 1/2, excluded: 1"));
+    assert!(success.contains("1/1 measured source regions"));
+    assert!(success.contains("1 unreachable regions"));
 
     write_coverage_fixture(
         &environment,
@@ -278,7 +293,7 @@ fn coverage_excludes_unreachable_lines_and_rejects_uncovered_live_lines() {
         run_coverage(&mut context, false, vec![], None, false)
             .expect_err("uncovered live line should fail")
             .to_string()
-            .contains("1 measured lines remain uncovered")
+            .contains("1 source regions remain uncovered")
     );
     assert!(
         !fs::read_to_string(log)
@@ -322,6 +337,26 @@ fn rejects_conflicting_coverage_options_and_reports_command_failures() {
             .expect_err("coverage command failure should propagate")
             .to_string()
             .contains("cargo llvm-cov --workspace")
+    );
+
+    environment.remove("BAKE_TEST_FAIL_ON");
+    let invalid_report = temporary_directory.path().join("invalid-coverage.json");
+    fs::write(&invalid_report, "not JSON").expect("write invalid coverage report");
+    environment.set("BAKE_TEST_COVERAGE_REPORT", &invalid_report);
+    assert!(
+        run_coverage(&mut context, false, vec![], None, false)
+            .expect_err("invalid coverage report should propagate")
+            .to_string()
+            .contains("invalid cargo-llvm-cov JSON report")
+    );
+
+    let missing_temporary_directory = temporary_directory.path().join("missing-temp");
+    environment.set("TMPDIR", &missing_temporary_directory);
+    assert!(
+        run_coverage(&mut context, false, vec![], None, false)
+            .expect_err("coverage report directory creation should fail")
+            .to_string()
+            .contains("failed to create temporary coverage report directory")
     );
 }
 
@@ -435,4 +470,137 @@ fn runs_external_tests_for_one_or_many_repositories() {
             }
         }
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn propagates_configured_external_test_failures() {
+    let temporary_directory = TemporaryDirectory::new();
+    let environment = Environment::new();
+    let (package, package_metadata) = local_package(temporary_directory.path());
+    let metadata = workspace_metadata(
+        temporary_directory.path(),
+        vec![json!({"repository": "socketry/downstream"})],
+        vec![package_metadata],
+    );
+    let log = prepare_cargo(
+        &environment,
+        temporary_directory.path(),
+        &metadata,
+        &downstream_metadata(&package),
+    );
+    let bin = temporary_directory.path().join("bin");
+    fs::create_dir_all(&bin).expect("create fake command directory");
+    crate::test_support::install_fake_git(&bin);
+    environment.prepend_path(&bin);
+    let git_log = temporary_directory.path().join("git.log");
+    fs::write(&git_log, "").expect("create fake Git log");
+    environment.set("BAKE_TEST_GIT_LOG", &git_log);
+    environment.set(
+        "BAKE_TEST_GIT_ORIGIN",
+        "https://github.com/socketry/downstream",
+    );
+    let mut context = context(temporary_directory.path());
+
+    environment.set("BAKE_TEST_METADATA_EXIT", "7");
+    assert!(
+        run_external(&mut context, false)
+            .expect_err("workspace metadata failure should propagate")
+            .to_string()
+            .contains("cargo metadata failed")
+    );
+    environment.set("BAKE_TEST_METADATA_EXIT", "0");
+
+    let external_root = temporary_directory.path().join("external");
+    fs::write(&external_root, "not a directory").expect("create invalid external path");
+    assert!(
+        run_external(&mut context, false)
+            .expect_err("external checkout directory creation should fail")
+            .to_string()
+            .contains("File exists")
+    );
+    fs::remove_file(&external_root).expect("remove invalid external path");
+
+    environment.set("BAKE_TEST_GIT_FAIL", "true");
+    assert!(
+        run_external(&mut context, false)
+            .expect_err("Git clone failure should propagate")
+            .to_string()
+            .contains("git clone failed")
+    );
+    environment.remove("BAKE_TEST_GIT_FAIL");
+
+    let checkout = external_root.join("downstream");
+    fs::create_dir_all(checkout.join(".git")).expect("create existing checkout");
+    fs::write(
+        checkout.join("Cargo.toml"),
+        "[patch.crates-io]\nlocal = { path = \"../other\" }\n",
+    )
+    .expect("write conflicting checkout manifest");
+    assert!(
+        run_external(&mut context, false)
+            .expect_err("conflicting downstream patch should propagate")
+            .to_string()
+            .contains("already patches")
+    );
+
+    fs::remove_dir_all(&external_root).expect("remove conflicting checkout");
+    environment.set("BAKE_TEST_FAIL_ON", "update");
+    assert!(
+        run_external(&mut context, false)
+            .expect_err("Cargo lockfile update failure should propagate")
+            .to_string()
+            .contains("cargo update failed")
+    );
+    environment.remove("BAKE_TEST_FAIL_ON");
+
+    let downstream_metadata_path = temporary_directory.path().join("downstream-metadata.json");
+    fs::write(
+        &downstream_metadata_path,
+        json!({
+            "packages": [{"id": "registry-id", "name": "local"}],
+            "resolve": {"nodes": [{"deps": [{"pkg": "registry-id"}]}]}
+        })
+        .to_string(),
+    )
+    .expect("write metadata with an unpatched dependency");
+    environment.set("BAKE_TEST_DOWNSTREAM_METADATA", &downstream_metadata_path);
+    assert!(
+        run_external(&mut context, false)
+            .expect_err("unpatched local dependency should propagate")
+            .to_string()
+            .contains("did not resolve to this workspace's local package")
+    );
+
+    let valid_downstream_metadata = temporary_directory
+        .path()
+        .join("valid-downstream-metadata.json");
+    fs::write(
+        &valid_downstream_metadata,
+        downstream_metadata(&package).to_string(),
+    )
+    .expect("restore valid downstream metadata");
+    environment.set("BAKE_TEST_DOWNSTREAM_METADATA", &valid_downstream_metadata);
+    let mut hook_context = context_with_hook(temporary_directory.path(), hook_fails);
+    assert!(
+        run_external(&mut hook_context, false)
+            .expect_err("external test hook failure should propagate")
+            .to_string()
+            .contains("pre-test hook failed")
+    );
+
+    let mut context = context_with_hook(temporary_directory.path(), hook_succeeds);
+    environment.set("BAKE_TEST_FAIL_ON", "test");
+    assert!(
+        run_external(&mut context, false)
+            .expect_err("downstream Cargo test failure should propagate")
+            .to_string()
+            .contains("cargo test --workspace failed in")
+    );
+
+    assert!(
+        !fs::read_to_string(log)
+            .expect("read fake Cargo calls")
+            .is_empty()
+    );
 }

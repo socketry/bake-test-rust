@@ -145,6 +145,30 @@ fn reads_workspace_metadata_through_cargo() {
             .to_string()
             .contains("could not parse Cargo metadata")
     );
+
+    _environment.set("BAKE_TEST_METADATA_EXIT", "7");
+    assert!(
+        read_workspace(&context)
+            .expect_err("Cargo metadata command failures should propagate")
+            .to_string()
+            .contains("cargo metadata failed")
+    );
+
+    _environment.set("BAKE_TEST_METADATA_EXIT", "0");
+    let invalid_external = json!({
+        "workspace_root": temporary_directory.path(),
+        "workspace_members": [],
+        "packages": [],
+        "metadata": {"bake": {"test": {"external": "invalid"}}}
+    });
+    fs::write(&metadata_path, invalid_external.to_string())
+        .expect("write invalid external repository metadata");
+    assert!(
+        read_workspace(&context)
+            .expect_err("external repository metadata should be validated")
+            .to_string()
+            .contains("must be an array")
+    );
 }
 
 #[test]
@@ -246,6 +270,22 @@ fn uses_root_package_metadata_when_workspace_metadata_is_absent() {
             .expect("unrelated root package has no external metadata")
             .is_empty()
     );
+
+    let missing_context = [
+        json!({}),
+        json!({"packages": "invalid"}),
+        json!({"packages": [{"manifest_path": "/workspace/Cargo.toml"}]}),
+        json!({"packages": [{"manifest_path": "/workspace/Cargo.toml", "metadata": {}}]}),
+        json!({"packages": [{"manifest_path": "/workspace/Cargo.toml", "metadata": {"bake": {}}}]}),
+        json!({"packages": [{"manifest_path": "/workspace/Cargo.toml", "metadata": {"bake": {"test": {}}}}]}),
+    ];
+    for metadata in missing_context {
+        assert!(
+            read_external_repositories(&metadata, root)
+                .expect("missing root package context means no external tests")
+                .is_empty()
+        );
+    }
 }
 
 #[test]
@@ -306,6 +346,10 @@ fn rejects_invalid_external_repository_metadata() {
         (
             json!({"metadata": {"bake": {"test": {"external": [{"repository": "owner/repo/extra"}]}}}}),
             "invalid owner/repository",
+        ),
+        (
+            json!({"metadata": {"bake": {"test": {"external": [{"repository": "owner/.."}]}}}}),
+            "checkout names may contain only",
         ),
         (
             json!({"metadata": {"bake": {"test": {"external": [{"repository": "owner/repo", "name": "same"}, {"repository": "other/repo", "name": "same"}]}}}}),
