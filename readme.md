@@ -67,6 +67,11 @@ for the standard process.
 <!-- bake-readme:releases:start -->
 See [releases.md](releases.md) for the full release history.
 
+### v0.3.0
+
+- Enforce complete source-region coverage, excluding regions inside
+  invariant-only `unreachable!()` calls.
+
 ### v0.2.3
 
 - Exclude uncovered, single-line `unreachable!("reason")` expressions from measured coverage automatically.
@@ -78,11 +83,6 @@ See [releases.md](releases.md) for the full release history.
 
 - Document how to install and discover dependency context and skills.
 - Assert external test runs refresh each checkout's Cargo lockfile.
-
-### v0.2.1
-
-- Use the shared `socketry-project` Releasing skill for the standard release
-  process and remove references to the duplicate Bake Cargo publishing context.
 <!-- bake-readme:releases:end -->
 
 ## See Also

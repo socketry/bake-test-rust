@@ -1,6 +1,6 @@
 # Releases
 
-## Unreleased
+## v0.3.0
 
 - Enforce complete source-region coverage, excluding regions inside
   invariant-only `unreachable!()` calls.
