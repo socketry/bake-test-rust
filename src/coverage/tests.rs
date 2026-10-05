@@ -85,6 +85,33 @@ fn merges_identical_source_regions_across_function_instantiations() {
 }
 
 #[test]
+fn reuses_source_files_across_coverage_data_sets() {
+    let directory = TemporaryDirectory::new();
+    let source = "fn work() { run(); }\n";
+    let path = source_path(&directory, source);
+    let function = function(&path, vec![region_for(source, "run()", 1)]);
+    let report = json!({
+        "data": [
+            {
+                "files": [{"filename": path}],
+                "functions": [function.clone()],
+            },
+            {
+                "files": [{"filename": path}],
+                "functions": [function],
+            },
+        ]
+    })
+    .to_string();
+
+    let summary = summarize(&report, directory.path()).expect("summarize coverage");
+
+    assert!(summary.is_complete());
+    assert_eq!(summary.measured_regions, 1);
+    assert_eq!(summary.covered_regions, 1);
+}
+
+#[test]
 fn keeps_distinct_source_ranges_on_the_same_line() {
     let directory = TemporaryDirectory::new();
     let source = "fn work() { if ready { run(); } }\n";
@@ -206,8 +233,12 @@ fn excludes_regions_within_multiline_unreachable_calls() {
 #[test]
 fn does_not_treat_macro_text_inside_strings_or_comments_as_unreachable() {
     let directory = TemporaryDirectory::new();
-    let source =
-        "let text = r#\"unreachable!()\"#; // unreachable!()\n/* unreachable!() */\nrun();\n";
+    let source = r##"let text = r#"unreachable!()"#; // unreachable!()
+/* unreachable!() */
+let unreachable = 1;
+let unreachable_macro = 2;
+run();
+"##;
     let path = source_path(&directory, source);
     let report = report(
         &path,

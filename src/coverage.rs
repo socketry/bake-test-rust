@@ -364,6 +364,7 @@ fn resolve_source_path(reported_path: &Path, source_root: &Path) -> PathBuf {
     fs::canonicalize(&path).unwrap_or(path)
 }
 
+/// Finds `unreachable!()` invocations in Rust source already validated by the compiler.
 fn find_unreachable_macros(source: &str) -> Vec<Range<usize>> {
     let mut ranges = Vec::new();
     let mut index = 0;
@@ -382,14 +383,13 @@ fn find_unreachable_macros(source: &str) -> Vec<Range<usize>> {
                 let bang = skip_trivia(source, name_end);
                 if source.as_bytes().get(bang) == Some(&b'!') {
                     let opening = skip_trivia(source, bang + 1);
-                    if let Some(&delimiter) = source.as_bytes().get(opening)
-                        && b"([{".contains(&delimiter)
-                    {
-                        let closing = matching_group_end(source, opening, delimiter);
-                        ranges.push(macro_path_start(source, index)..closing);
-                        index = closing;
-                        continue;
-                    }
+                    let Some(&delimiter) = source.as_bytes().get(opening) else {
+                        unreachable!("compiled Rust macro invocations have an opening delimiter");
+                    };
+                    let closing = matching_group_end(source, opening, delimiter);
+                    ranges.push(macro_path_start(source, index)..closing);
+                    index = closing;
+                    continue;
                 }
             }
         }
