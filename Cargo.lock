@@ -116,7 +116,7 @@ dependencies = [
 
 [[package]]
 name = "bake-test-rust"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bake",
  "serde_json",
