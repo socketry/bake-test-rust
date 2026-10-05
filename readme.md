@@ -10,15 +10,10 @@ Rust provides a good test runner through Cargo, but it does not provide a shared
 
 Add the task crate to the private `bake/` package:
 
-```toml
-[dependencies]
-bake-test-rust = "0.3"
-```
-
-Link its tasks from `bake/src/main.rs`:
-
-```rust,ignore
-use bake_test_rust as _;
+```sh
+cargo bake --regenerate
+cargo add --manifest-path bake/Cargo.toml bake-test-rust
+cargo bake --regenerate
 ```
 
 Then run the workspace tests:
